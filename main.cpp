@@ -34,20 +34,23 @@ void getRobotPositionEstimate(RobotState& estimatePosn)
     // the position would be the particle that has maximum weight
     std::vector<double>::iterator it = std::max_element(g_weights.begin(),g_weights.end()); 
     size_t ind = std::distance(g_weights.begin(), it);
-    
-    estimatePosn.x = g_particles[ind].x;
-    estimatePosn.y = g_particles[ind].y;
-    estimatePosn.theta = g_particles[ind].theta;
 
+    // add a low pass filter to the position
+    g_estimate_pos.x = 0.9 * g_estimate_pos.x + 0.1 * g_particles[ind].x;
+    g_estimate_pos.y = 0.9 * g_estimate_pos.y + 0.1 * g_particles[ind].y;
+    g_estimate_pos.theta = g_particles[ind].theta;
+
+    estimatePosn = g_estimate_pos;
     // calculate the number of efficient particles
     double sum=0, sq_sum = 0;
+
     for (int i = 0; i < NUM_PARTICLES; i++) {
         sum += g_weights[i];
         sq_sum += g_weights[i]*g_weights[i];
     }
     double n_eff = sum * sum / sq_sum;
     //if number of efficient particles are less than an threshold, we need to resample the particles
-    if (n_eff < 0.4 * NUM_PARTICLES) {
+    if (n_eff < RESAMPLE_THRESH * NUM_PARTICLES) {
         g_particles = resample(g_particles, g_weights);
         std::cout << "resample!!" << std::endl;
     }
@@ -101,14 +104,15 @@ void motionUpdate(RobotState delta)
  * marker obervations (marker index and position of marker in robot 
  * coordinates) for the current frame.
  */
+
 void sensorUpdate(std::vector<MarkerObservation> observations)
 {
     // each particle will have an assumption, and the probability
     // of that assumption is calculated to update the weight
 
     // correlation
-    double corr[NUM_PARTICLES] = {1}; 
-
+    std::vector<double> corr(NUM_PARTICLES,1);
+    
     // loop through marker
     for (int i = 0; i < observations.size(); i++) {
         // get the marker position
@@ -116,9 +120,6 @@ void sensorUpdate(std::vector<MarkerObservation> observations)
         double m_y = g_markerLocations[observations[i].markerIndex].y;
         // get the distance and orientation
         double m_dist = observations[i].distance, m_ori = observations[i].orientation;
-        // get the variance of sensor noise;
-        double sen_var = (g_robotParams.sensor_noise_distance * fabs(m_dist) +
-                        g_robotParams.sensor_noise_orientation * fabs(m_ori));
 
         //loop through particles
         for (int j = 0; j < NUM_PARTICLES; j++) {
@@ -126,22 +127,37 @@ void sensorUpdate(std::vector<MarkerObservation> observations)
             double p_x = g_particles[j].x;
             double p_y = g_particles[j].y;
             double p_theta = g_particles[j].theta;
-            // get the relative landmark position in robot coordinate
-            double dx_r = m_dist * cos(m_ori);
-            double dy_r = m_dist * sin(m_ori);
-            // transfer it to the world coordinate
-            double dx_w = cos(p_theta) * dx_r - sin(p_theta) * dy_r;
-            double dy_w = sin(p_theta) * dx_r + cos(p_theta) * dy_r;
-            // get the assumption of marker position
-            double m_x_as = p_x + dx_w;
-            double m_y_as = p_y + dy_w;
-            // calculate the probability p(o|s);
-            double dis = ((m_x - m_x_as) * (m_x - m_x_as) + (m_y - m_y_as) * (m_y - m_y_as));
-            double p = exp(-dis / (2.0 * sen_var));
-            g_weights[j] *= p;
+
+            // get the distance and orientation assumption
+            double dist_as = sqrt((m_x - p_x) * (m_x - p_x) + (m_y - p_y) * (m_y - p_y));
+            double ori_as = atan2((m_y - p_y) , (m_x - p_x)) - p_theta;
+            // calculate the probability, assume the distance and orientation are independent, so that it can be multiplied together
+            double p_dist = exp(-(dist_as - m_dist) *(dist_as - m_dist) / (2.0*g_robotParams.sensor_noise_distance));
+            double p_ori = exp(-(ori_as - m_ori) *(ori_as - m_ori) / (2.0*g_robotParams.sensor_noise_orientation));
+            corr[j] *= p_dist * p_ori;
         } 
     }
-    normalizeWeight(g_weights);
+
+    // find if the robot is kidnapped
+
+    if ( *std::max_element(corr.begin(), corr.end()) < 0.8) {
+        kidnapp++;
+        if (kidnapp > KIDNAPP_THRESH) {
+            // if kidnapped, reinitialize particles
+            printf("KIDNAPPED!!!!!!!!!!!!!!!!!!!");
+            reInitializeParticles(g_particles, g_weights);
+        }
+    } else {
+        kidnapp = 0;
+        // update of 
+        for (int k = 0; k < NUM_PARTICLES; k++) { 
+            g_weights[k] *= corr[k];
+        }
+        normalizeWeight(g_weights);
+
+    }
+
+
 }
 
 /**
@@ -153,13 +169,12 @@ void normalizeWeight(std::vector<double>& weight) {
     //shift and calculate sum
     double sum = 0;
     for (int i = 0; i < weight.size(); i++) {
-        if (min_val <= 0) weight[i] = weight[i] - min_val + pow(10,-6);
+        if (min_val < 0) weight[i] = weight[i] - min_val + pow(10,-6);
+        if (weight[i] < pow(10, -6)) weight[i] = pow(10, -6);
         sum += weight[i];
     }
-
     for (int i = 0; i < weight.size(); i++) {
         weight[i] /= sum;
-        //printf("%.3f\n", weight[i]);
     }
 }
 
@@ -174,14 +189,25 @@ void myinit(RobotState robotState, RobotParams robotParams,
 {
     // initialize particles and 
     //initialize importance weights to be uniformly distributed
-
     for (int i = 0; i < NUM_PARTICLES; i++) {
         g_particles.push_back(robotState);
         g_weights.push_back(1.0 / NUM_PARTICLES);
+        //printf("%.3f\t", g_weights[i]);
     }
+
+    // initialize estimate pose
+    g_estimate_pos = robotState;
+
     // intialize robot parameters and landmarks location
     g_robotParams = robotParams;
     g_markerLocations = markerLocations;
+
+    // set the kidnapp value
+    kidnapp = 0;
+
+    // Initialize particle with uniform distribution, if you know accurarely where
+    // you are, just comment the localizaiton 
+    reInitializeParticles(g_particles, g_weights);
 }
 
 /**
@@ -224,7 +250,6 @@ int mykeyboard(unsigned char key)
 	return 0;
 }
 
-
 /**
 *generateGaussianNoise()
 *This function generate gaussian noise given mean and vaiance
@@ -262,8 +287,6 @@ double generateGaussianNoise(double mu, double sigma)
 *use Low Variance Sampling technique to resample the particles
 */
 std::vector<RobotState> resample(std::vector<RobotState>& particles, std::vector<double>& weights) {
-
-    printf("\n");
     std::vector<RobotState> new_particles;
 
     double increment = 1.0/NUM_PARTICLES;
@@ -275,7 +298,6 @@ std::vector<RobotState> resample(std::vector<RobotState>& particles, std::vector
             val -= weights[ind++];
             if (ind >= NUM_PARTICLES) ind = 0;
         }
-        
         new_particles.push_back(particles[ind]);
     }
 
@@ -284,6 +306,23 @@ std::vector<RobotState> resample(std::vector<RobotState>& particles, std::vector
     return new_particles;
 }
 
+/**
+*reInitializeParticles()
+*When the robot found out it self was kidnapped,
+*it would reinitilize particles
+*/
+void reInitializeParticles(std::vector<RobotState>& particles, std::vector<double>& weights) {
+    for (int i = 0; i < particles.size(); i++) {
+        double rand_x = FIELD_LENGTH * METERS_PER_PIXEL / 2.0 * (rand() * (2.0 / RAND_MAX) - 1);
+        double rand_y = FIELD_WIDTH * METERS_PER_PIXEL / 2.0 * (rand() * (2.0 / RAND_MAX) - 1);
+        double rand_theta = PI * (rand() * (2.0 / RAND_MAX) - 1);
+        particles[i].x = rand_x;
+        particles[i].y = rand_y;
+        particles[i].theta = rand_theta;
+    }
+     // set weights to uniform distributed
+    std::fill(weights.begin(), weights.end(), 1.0 / NUM_PARTICLES);
+}
 
 /**
  * Main entrypoint for the program.

@@ -35,12 +35,26 @@ void normalizeWeight(std::vector<double>&);
 //resemple particles
 std::vector<RobotState> resample(std::vector<RobotState>&, std::vector<double>&);
 
+//generate random particles to overcome kidnaped problem
+void reInitializeParticles(std::vector<RobotState>&, std::vector<double>&);
+
+
 // Set the global variables
-const int NUM_PARTICLES = 1000;
-const double PI = 3.14159;
+const int NUM_PARTICLES = 2000;
+const double PI = 3.14159265358979323846;
+
+// set the value for resample 
+const double RESAMPLE_THRESH = 0.8;
+
+// The value for kidnapp, if it is larger than some threshold it is kidnapped;
+int kidnapp;
+const int KIDNAPP_THRESH = 10;
 
 // particles
 std::vector<RobotState> g_particles;
+
+// best position
+RobotState g_estimate_pos;
 
 // importance weight
 std::vector<double> g_weights;
