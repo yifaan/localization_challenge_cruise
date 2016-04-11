@@ -51,6 +51,13 @@ explanation:
 - I generally don't wan't any possibility to be 0, so I set a lower bound of weight to be 10^-6
 - I implemented a low pass filter for the final estimated position in order to make it move smoothly.
 
+### some value I'm using 
+const int NUM_PARTICLES = 2000;
+const double RESAMPLE_THRESH = 0.8;
+const int KIDNAPP_THRESH = 10;
+all the gaussian noise variance I used are from the given value
+
+
 ## Improvement can be done
 There are so many improvements can be done, I'll just name a few:
 - There might be some criticle bug in the program that I overlooked and correctd by the power of particle filter,
