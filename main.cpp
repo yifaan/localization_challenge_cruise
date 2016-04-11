@@ -139,7 +139,6 @@ void sensorUpdate(std::vector<MarkerObservation> observations)
     }
 
     // find if the robot is kidnapped
-
     if ( *std::max_element(corr.begin(), corr.end()) < 0.8) {
         kidnapp++;
         if (kidnapp > KIDNAPP_THRESH) {
@@ -187,6 +186,7 @@ void normalizeWeight(std::vector<double>& weight) {
 void myinit(RobotState robotState, RobotParams robotParams, 
             FieldLocation markerLocations[NUM_LANDMARKS])
 {
+    srand(time(0));
     // initialize particles and 
     //initialize importance weights to be uniformly distributed
     for (int i = 0; i < NUM_PARTICLES; i++) {
@@ -329,7 +329,6 @@ void reInitializeParticles(std::vector<RobotState>& particles, std::vector<doubl
  */
 int main (int argc, char ** argv)
 {   
-    srand(time(0));
     // Initialize world, sets initial robot position
     // calls myinit() before returning
     //runMainLoop(argc, argv);
