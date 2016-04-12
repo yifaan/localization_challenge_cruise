@@ -27,11 +27,11 @@ number of particles, I set up some global variables.
 ### A simple pipeline
 Initialize particles and weights  
 loop  
-	motionUpdate()   
-	if Detect Landmark  
-		sensorUpdate()  
-	getRobotPositionEstimate()  
-	if Neff < threshold resample()  
+&nbsp;&nbsp;&nbsp;&nbsp;motionUpdate()   
+&nbsp;&nbsp;&nbsp;&nbsp;if Detect Landmark  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sensorUpdate()  
+&nbsp;&nbsp;&nbsp;&nbsp;getRobotPositionEstimate()  
+&nbsp;&nbsp;&nbsp;&nbsp;if Neff < threshold resample()  
 end  
 	
 explanation:
@@ -52,9 +52,9 @@ explanation:
 - I implemented a low pass filter for the final estimated position in order to make it move smoothly.
 
 ### some value I'm using 
-const int NUM_PARTICLES = 2000;
-const double RESAMPLE_THRESH = 0.8;
-const int KIDNAPP_THRESH = 10;
+const int NUM_PARTICLES = 2000;  
+const double RESAMPLE_THRESH = 0.8;  
+const int KIDNAPP_THRESH = 10;  
 all the gaussian noise variance I used are from the given value
 
 
