@@ -12,27 +12,27 @@ To keep track all the particles, it's weight, whether the robot is kidnapped and
 number of particles, I set up some global variables.
 
 ###Some method to help the implementation.
-- double generateGaussianNoise(double mu, double sigma);
-  This methold can generate gaussian distributed noise given the mean and variance, it is used
+- double generateGaussianNoise(double mu, double sigma);  
+   This methold can generate gaussian distributed noise given the mean and variance, it is used
    for the motion update.
 
-- std::vector<RobotState> resample(std::vector<RobotState>& particles, std::vector<double>& weights);
+- std::vector<RobotState> resample(std::vector<RobotState>& particles, std::vector<double>& weights);  
   This method is used to resemple the particles when the number of efficient particles is lower than 
   a threshold
 
-- void reInitializeParticles(std::vector<RobotState>& particles, std::vector<double>& weights);
+- void reInitializeParticles(std::vector<RobotState>& particles, std::vector<double>& weights);  
   This method generated uniformly distributed even weighted particles in the play ground. It is use in 
   the initialization and every time a kidnapped is detected. 
 
 ### A simple pipeline
-Initialize particles and weights
-loop
-	motionUpdate() 
-	if Detect Landmark
-		sensorUpdate()
-	getRobotPositionEstimate()
-	if Neff < threshold resample()
-end
+Initialize particles and weights  
+loop  
+	motionUpdate()   
+	if Detect Landmark  
+		sensorUpdate()  
+	getRobotPositionEstimate()  
+	if Neff < threshold resample()  
+end  
 	
 explanation:
 - In motionUpdate(), the position of particles is updated given it's state (x,y,theta) and the odom info 
